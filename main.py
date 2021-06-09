@@ -1,4 +1,4 @@
-import requests, time
+import requests, time, re
 from bs4 import BeautifulSoup
 
 import mysql.connector
@@ -7,7 +7,7 @@ Database = {
 	'host' : '127.0.0.1',
 	'database' : 'ipc',
 	'user' : 'arleme',
-	'password' : '__@arleme'
+	'password' : '******'
 }
 
 class IPC():
@@ -27,6 +27,21 @@ class IPC():
 
 		return requete
 
+	def get_list_url(self):
+		query = '''
+			SELECT id, url 
+			FROM produits WHERE name IS NULL
+		'''
+
+		self.cursor.execute(query)
+
+		list_url = self.cursor.fetchall()
+
+		return list_url
+
+		time.sleep(1)
+
+
 	def insert_article(self, categorie, url):
 		query = '''
 			INSERT IGNORE INTO 
@@ -37,23 +52,30 @@ class IPC():
 
 		self.cursor.execute(query, (url, categorie))
 
-		print(query)
-		
 		self.db.commit()
+
+		print("article inserted")
 
 		time.sleep(1)
 
 
-	# def update_article(self):
-	# 	query = '''
-	# 		INSERT IGNORE INTO 
-	# 			Produits(name, url, image, prix, categorie, marque, description)
-	# 		VALUES
-	# 			(%s, %s, %s, %s, %s, %s, %s, %s)
+	def update_article(self, name, image, prix, marque, description, id_article):
+		query = '''
+			UPDATE 
+				produits
+			SET
+				name = %s, image = %s, prix = %s, marque = %s, description = %s
+			WHERE
+				id = %s
+		'''
 
-	# 	'''
+		self.cursor.execute(query, (name, image, prix, marque, description, id_article))
 
-	# 	self.cursor.execute(query, (name, url, image, prix, categorie, marque, description))
+		self.db.commit()
+
+		print("article updated")
+
+		time.sleep(1)
 
 
 	def get_article_list(self, categorie, url_categorie):
@@ -68,7 +90,7 @@ class IPC():
 		}
 		nb_page = int(nb_articles/page)
 
-		for i  in range (1,nb_page):
+		for i  in range (73,nb_page):
 			params["page"]=i
 			page = self.get(url_categorie,params )       
 			soup = BeautifulSoup(page.text, 'html.parser')
@@ -110,13 +132,70 @@ class IPC():
 		return categorie
 
 
+	def getDetailsArticle(self, url) :
+
+		article = {}
+
+		page = self.get(url)
+		soup = BeautifulSoup(page.text, 'html.parser')
+		try :
+
+			marques = [
+				"Asus" , "Asus" , "Chicony" , "Clevo", "Dell" , "Delta electronics" ,"FSP", "Fujitsu", 
+				"HP" , "Lenovo", "LiteOn","Medion" , "MSI" , "Panasonic" , "Samsung" ,"Sony" ,
+				"Toshiba", "Treksor" , "Worthmann"
+			]
+
+		    #nom de l'article
+
+			try:
+				article["name"] =  re.sub('\s+',' ',(str((soup.find("h1",{"class":"pageHeading"})).get_text())))
+				article["prix"] = int(str((soup.find("span",{"itemprop":"price"})).get_text()).replace(".00",""))*4596
+				image_list = " ; ".join(['https://www.ipc-computer.fr/'+img['src'] for img in soup.find_all('img',{'itemprop':'image'})])
+			except:
+				image_list = ""
+			
+			for marque in marques :
+				brand = ""
+				a = article["name"].find(str(marque))
+				if int(a) > -1 :
+					brand = marque
+					break
+
+			article["marque"] = brand
+			article["image"] = image_list
+
+			try :
+				divs  = soup.find("div" ,{"id":"tabContent0"})
+				divs = re.sub('\s+',' ',(divs.get_text()))
+			except:
+				divs = ""
+
+			article["description"] = divs
+		except  :
+			print("""
+				!!!!!!!!!!
+				FAIL
+				!!!!!!!!!!
+			""")
+		    
+		return article
+
+
 if __name__ == '__main__':
 
-	scrapp = IPC()
+	# scrapp = IPC()
 
-	list_categorie = scrapp.get_categorie()
+	# # list_categorie = scrapp.get_categorie()
 
-	print(list_categorie['Chargeurs'])
+	# # print(list_categorie['Chargeurs'])
 
-	print(scrapp.get_article_list('Chargeurs',list_categorie['Chargeurs']))
-	
+	# # print(scrapp.get_article_list('Chargeurs',list_categorie['Chargeurs']))
+
+	# articles = scrapp.get_list_url()
+
+	# for article in articles:
+	# 	print(article[1])
+	# 	detail = scrapp.getDetailsArticle(article[1])
+	# 	print(detail)
+	# 	scrapp.update_article(detail['name'],detail['image'],detail['prix'],detail['marque'],detail['description'], article[0])
