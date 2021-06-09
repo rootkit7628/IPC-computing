@@ -1,29 +1,55 @@
 import requests
 from bs4 import BeautifulSoup
 
+import mysql.connector
 
-def get_categorie():
+Database = {
+	'Host' : '',
+	'Database' : '',
+	'User' : '',
+	'Password' : ''
+}
 
-	url = 'https://www.ipc-computer.fr/'
+class IPC():
 
-	categorie = {}
+	def __init__(self):
+		self.db = mysql.connector.connect(**Database)
+		self.cursor = self.db.cursor()
 
-	r = requests.get('https://www.ipc-computer.fr/notebook-kategorien')
+	def insert_article():
+		query = '''
+			INSERT IGNORE INTO 
+				Produits(name, url, image, prix, categorie, marque, description)
+			VALUES
+				(%s, %s, %s, %s, %s, %s, %s, %s)
 
-	src_code = BeautifulSoup(r.text, 'html.parser')
+		'''
 
-	for a in src_code.find_all('a'):
-		link = a.get('href')
-		if link.startswith('/pieces-detachees/'):
-			categorie_name = a.get('title')
-			categorie_link = url + a.get('href')
+		self.cursor.execute(query, (name, url, image, prix, categorie, marque, description))
 
-			categorie[categorie_name] = categorie_link
+	def get_categorie():
 
-	del categorie['']
+		url = 'https://www.ipc-computer.fr/'
 
-	return categorie
+		categorie = {}
+
+		r = requests.get('https://www.ipc-computer.fr/notebook-kategorien')
+
+		src_code = BeautifulSoup(r.text, 'html.parser')
+
+		for a in src_code.find_all('a'):
+			link = a.get('href')
+			if link.startswith('/pieces-detachees/'):
+				categorie_name = a.get('title')
+				categorie_link = url + a.get('href')
+
+				categorie[categorie_name] = categorie_link
+
+		del categorie['']
+
+		return list(categorie.keys())
 
 
 if __name__ == '__main__':
-	print(len(get_categorie()))
+	print(get_categorie())
+	
